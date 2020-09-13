@@ -1,0 +1,2 @@
+* vidlib
+A utility library for video-making related tasks
