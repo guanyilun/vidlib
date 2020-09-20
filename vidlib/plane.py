@@ -16,8 +16,8 @@ class BoostPlane(NumberPlane):
         "y_min": -10,
         "y_max": 10,
         "axis_arrow_size": 6,
-        "xlabel": "ct",
-        "ylabel": "t"
+        "ylabel": "ct",
+        "xlabel": "x"
     }
     def __init__(self, rot=0, **kwargs):
         """Plane used for relativity boosting"""
@@ -32,7 +32,7 @@ class BoostPlane(NumberPlane):
         # axes and label
         xaxis = self.get_vector((self.axis_arrow_size,0))
         yaxis = self.get_vector((0,self.axis_arrow_size))
-        xlabel = TexMobject(self.xlabel).next_to(xaxis, DOWN)
-        ylabel = TexMobject(self.ylabel).next_to(yaxis, LEFT)
+        xlabel = TexMobject(self.xlabel).next_to(xaxis, DOWN).shift(3*RIGHT)
+        ylabel = TexMobject(self.ylabel).next_to(yaxis, LEFT).shift(3*UP)
         axes = VGroup(xaxis, yaxis, xlabel, ylabel)
         self.add_to_back(axes)
