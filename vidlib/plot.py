@@ -103,29 +103,45 @@ class MplAxisWrapper(CoordinateSystem, VGroup):
             # import ipdb; ipdb.set_trace()
             line_color = line.get_color()
             line_x, line_y = line.get_data()
-            t = np.linspace(0, 1, len(line_x))
             # import ipdb; ipdb.set_trace()
             _, mask_x = filter_by_lim(line_x, xlim, return_mask=True)
             _, mask_y = filter_by_lim(line_y, ylim, return_mask=True)
-            line_x = line_x[mask_x * mask_y]
-            line_y = line_y[mask_x * mask_y]
-            t = t[mask_x * mask_y]
-            fx = sinterp.interp1d(t, line_x, kind='cubic')
-            fy = sinterp.interp1d(t, line_y, kind='cubic')
-            # line_x = line_x[mask_x*mask_y]
-            # line_y = line_y[mask_x*mask_y]
+            mask = mask_x
+            line_x = line_x[mask]
+            line_y = line_y[mask]
             t = np.linspace(0, 1, len(line_x))
             fx = sinterp.interp1d(t, line_x, kind='cubic')
             fy = sinterp.interp1d(t, line_y, kind='cubic')
             graph = ParametricCurve(
                 lambda t: self.c2p(fx(t), fy(t)),
                 t_range=[0, 1, 1/self.npl],
-                color=line_color,
+                color=c2hex(line_color),
             )
             lines.append(graph)
         self.lines = VGroup(*lines)
         self.add(self.lines)
         self.center()
+
+    def plot(self, line_x, line_y, fmt='-', c=None, alpha=1, x_range=None, **kwargs):
+        if fmt == '-':
+            # import ipdb; ipdb.set_trace()
+            _, mask_x = filter_by_lim(line_x, self.xlim, return_mask=True)
+            _, mask_y = filter_by_lim(line_y, self.ylim, return_mask=True)
+            mask = mask_x
+            line_x = line_x[mask]
+            line_y = line_y[mask]
+            t = np.linspace(0, 1, len(line_x))
+            fx = sinterp.interp1d(t, line_x, kind='cubic')
+            fy = sinterp.interp1d(t, line_y, kind='cubic')
+            graph = ParametricCurve(
+                lambda t: self.c2p(fx(t), fy(t)),
+                t_range=[0, 1, 1/self.npl],
+                color=c2hex(c),
+                stroke_opacity=alpha,
+            )
+            return graph
+        else:
+            raise NotImplemented
 
     def get_axis_label(self, label_tex, axis, edge, direction, buff=MED_SMALL_BUFF, rotate=0, **kwargs):
         label = Tex(label_tex, **kwargs)

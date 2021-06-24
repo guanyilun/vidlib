@@ -1,5 +1,5 @@
 """Modules related to three dimensions"""
-from manimlib.imports import *
+from manimlib import VGroup, Dot
 
 
 class PointCloud(VGroup):
