@@ -1,7 +1,7 @@
 """This module contains useful planes for physics
 
 """
-from manimlib import NumberPlane
+from manimlib import NumberPlane, Axes, TexMobject, BLACK
 
 
 class BoostPlane(NumberPlane):

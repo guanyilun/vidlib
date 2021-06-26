@@ -1,29 +1,48 @@
 from manimlib import *
+from vidlib.colors import *
 
+C = colorscheme['default']
 
 class Slide(VGroup):
     CONFIG = {
-        'text_config': {
-            'color': BLACK
-        },
-        'fs_h1': 48,
-        'fs_h2': 36,
-        'fs_h3': 24,
-        'fill_color': "#eeeeee",
+        'style': {
+            'h1': {
+                'fs': 48,
+                'color': C['blue-light'],
+                # 'color': C['blue-light-1'],
+            },
+            'h2': {
+                'fs': 36,
+                # 'color': C['gray-light-3'],
+                'color': C['gray-light-3'],
+            },
+            'h3': {
+                'fs': 24,
+                'color': C['gray-light-3'],
+            },
+            'bg': {
+                'color': C['blue-dark'],
+            }
+        }
     }
     def __init__(self):
         super().__init__()
         self.last_mob = None
-        self.add(FullScreenRectangle(fill_color=self.fill_color))
+        self.add(
+            FullScreenRectangle(fill_color=self.style['bg']['color'])
+        )
 
     def h1(self, text):
-        return Text(text, font_size=self.fs_h1, **self.text_config)
+        return Text(text, font_size=self.style['h1']['fs'],
+                    color=self.style['h1']['color'])
 
     def h2(self, text):
-        return Text(text, font_size=self.fs_h2, **self.text_config)
+        return Text(text, font_size=self.style['h2']['fs'],
+                    color=self.style['h2']['color'])
 
     def h3(self, text):
-        return Text(text, font_size=self.fs_h3, **self.text_config)
+        return Text(text, font_size=self.style['h3']['fs'],
+                    color=self.style['h3']['color'])
 
     def add_v(self, mob, relative=DOWN):
         if self.last_mob is None:
@@ -38,7 +57,7 @@ class Slide(VGroup):
         title = self.h1(text)
         title.to_edge(UP)
         if underline:
-            ul = Line(LEFT, RIGHT, **self.text_config)
+            ul = Line(LEFT, RIGHT, color=self.style['h2']['color'])
             ul.next_to(title, DOWN, buff=buff)
             ul.set_width(underline_width)
             title.add(ul)
@@ -55,35 +74,48 @@ class Slide(VGroup):
 
 
 class SlideShow(Scene):
+    CONFIG = {
+        'transition_time': 0,
+        'transition': 'move_to',
+    }
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.slides = []
         self.sid = 0
 
-    def add_slide(self, slide=None):
+    def add_slide(self, slide=None, side=DOWN):
         if not slide: slide = Slide()
         if len(self.slides) > 0:
-            slide.next_to(self.slides[-1], DOWN)
+            if side is not None:
+                slide.next_to(self.slides[-1], side)
         self.slides.append(slide)
         self.add(slide)
         return slide
 
-    def goto(self, sid):
+    def goto(self, sid, run_time=None):
+        if not run_time: run_time = self.transition_time
         if sid >= len(self.slides): pass
-        self.play(
-            self.camera.frame.animate.move_to(
+        animations = []
+        if self.transition == 'move_to':
+            animations = [self.camera.frame.animate.move_to(
                 self.slides[sid].get_center()
-            ), run_time=0.5)
+            )]
+        elif self.transition == 'crossfade':
+            animations = [FadeOut(self.slides[self.sid]),FadeIn(self.slides[sid])]
+        self.play(*animations, run_time=run_time)
 
     def on_key_press(self, symbol, modifiers):
         super().on_key_press(symbol, modifiers)
-        if symbol in [65363,65364,65366]:  # right, down
+        if symbol in [65363,65364,65366]:  # right, down, pagedown
             if self.sid < len(self.slides) - 1:
+                self.goto(self.sid+1)
                 self.sid += 1
-                self.goto(self.sid)
-                print(self.sid)
-        if symbol in [65361,65362,65365]:  # left, up
+
+        if symbol in [65361,65362,65365]:  # left, up, pageup
             if self.sid > 0:
+                self.goto(self.sid-1)
                 self.sid -= 1
-                self.goto(self.sid)
-                print(self.sid)
+                
+
+    def show_animations(self):
+        pass
