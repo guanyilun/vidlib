@@ -12,7 +12,8 @@ class MyAxes(Axes):
         "axis_config": {
             "include_tip": True,
             "numbers_to_exclude": [0],
-            "color": BLACK
+            "color": BLACK,
+            "use_tex": False,
         }
     }
     def plot(self, x, y, fmt='-', c=None, alpha=None, x_range=None, **kwargs):
@@ -28,13 +29,14 @@ class MyAxes(Axes):
         return self.plot(np.log10(x), np.log10(y), **kwargs)
 
     def set_xlabel(self, label, **kwargs):
-        return self.get_x_axis_label(label, edge=DOWN, direction=DOWN, **kwargs)
+        return self.set_x_axis_label(label, edge=DOWN, direction=DOWN, **kwargs)
 
     def set_ylabel(self, label, **kwargs):
-        return self.get_y_axis_label(label, edge=LEFT, direction=LEFT, rotate=90, **kwargs)
+        return self.set_y_axis_label(label, edge=LEFT, direction=LEFT, rotate=90, **kwargs)
 
-    def get_axis_label(self, label_tex, axis, edge, direction, buff=MED_SMALL_BUFF, rotate=0, **kwargs):
-        label = Tex(label_tex, **kwargs)
+    def get_axis_label(self, label_tex, axis, edge, direction, buff=MED_SMALL_BUFF, rotate=0, use_tex=False, **kwargs):
+        if use_tex: label = Tex(label_tex, **kwargs)
+        else: label = Text(label_tex, **kwargs)
         if rotate: label.rotate(rotate*DEGREES)
         label.next_to(
             axis.get_edge_center(edge), direction,
@@ -49,12 +51,16 @@ class MplAxisWrapper(CoordinateSystem, VGroup):
         "height": FRAME_HEIGHT - 2,
         "width": FRAME_WIDTH - 2,
         "tick_direction": "out",
-        "npl": 200  # number of points per line
+        "npl": 200,  # number of points per line,
+        "color": WHITE,
+        "use_tex": False,
+        "label_fontsize": 24,
     }
     def __init__(self, ax, **kwargs):
         """Take an mpl axis instance to produce a VGroup that look like it
         """
-        super().__init__(**kwargs)
+        CoordinateSystem.__init__(self, **kwargs)
+        VGroup.__init__(self, **kwargs)
 
         # make x-axis
         self._ax = ax
@@ -66,7 +72,8 @@ class MplAxisWrapper(CoordinateSystem, VGroup):
         xaxis = MyNumberLine(xticks=xticks, x_range=xlim, width=self.width,
                              numbers_with_elongated_ticks=xmajorticks,
                              xscale=ax.get_xscale(), numbers_to_exclude=xminorticks,
-                             tick_direction=self.tick_direction)
+                             tick_direction=self.tick_direction,
+                             color=self.color, decimal_number_config={'color': self.color})
         xaxis.shift(-xaxis.n2p(xlim[0]))
         self.xlim  = xlim
         self.xaxis = xaxis
@@ -82,7 +89,8 @@ class MplAxisWrapper(CoordinateSystem, VGroup):
                              line_to_number_direction=UP,
                              numbers_with_elongated_ticks=ymajorticks,
                              xscale=ax.get_yscale(), numbers_to_exclude=yminorticks,
-                             tick_direction=self.tick_direction)
+                             tick_direction=self.tick_direction,
+                             color=self.color, decimal_number_config={'color': self.color})
         yaxis.shift(-yaxis.n2p(ylim[0]))
         yaxis.rotate(90 * DEGREES, about_point=ORIGIN)
         self.ylim  = ylim
@@ -91,19 +99,17 @@ class MplAxisWrapper(CoordinateSystem, VGroup):
         self.add(*self.axes)
 
         # parse x,y labels
-        self.xlabel = self.get_x_axis_label(ax.get_xlabel(),
-                                            edge=DOWN, direction=DOWN, color=BLACK)
-        self.ylabel = self.get_y_axis_label(ax.get_ylabel(),
-                                            edge=LEFT, direction=LEFT, rotate=90, color=BLACK)
+        self.xlabel = self.get_x_axis_label(ax.get_xlabel(), edge=DOWN, direction=DOWN, color=self.color,
+                                            font_size=self.label_fontsize)
+        self.ylabel = self.get_y_axis_label(ax.get_ylabel(), edge=LEFT, direction=LEFT, rotate=90, 
+                                            color=self.color, font_size=self.label_fontsize)
         self.add(self.xlabel, self.ylabel)
 
         # parse lines
         lines = []
         for line in ax.get_lines():
-            # import ipdb; ipdb.set_trace()
             line_color = line.get_color()
             line_x, line_y = line.get_data()
-            # import ipdb; ipdb.set_trace()
             _, mask_x = filter_by_lim(line_x, xlim, return_mask=True)
             _, mask_y = filter_by_lim(line_y, ylim, return_mask=True)
             mask = mask_x
@@ -144,7 +150,10 @@ class MplAxisWrapper(CoordinateSystem, VGroup):
             raise NotImplemented
 
     def get_axis_label(self, label_tex, axis, edge, direction, buff=MED_SMALL_BUFF, rotate=0, **kwargs):
-        label = Tex(label_tex, **kwargs)
+        if self.use_tex: 
+            label = Tex(label_tex, **kwargs)
+        else: 
+            label = Text(label_tex, **kwargs)
         if rotate: label.rotate(rotate*DEGREES)
         label.next_to(
             axis.get_edge_center(edge), direction,
@@ -169,6 +178,9 @@ class MplAxisWrapper(CoordinateSystem, VGroup):
             for axis in self.get_axes()
         ])
 
+    def get_all_ranges(self):
+        return [self.x_range, self.y_range]
+
 
 class MyNumberLine(NumberLine):
     CONFIG = {
@@ -191,6 +203,8 @@ class MyNumberLine(NumberLine):
         },
         "line_to_number_direction": DOWN,
     }
+    def __init__(self, **kwargs):
+        NumberLine.__init__(self, **kwargs)
 
     def get_tick_range(self):
         return self.xticks
