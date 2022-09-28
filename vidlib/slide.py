@@ -146,4 +146,40 @@ class SlideShow(Scene):
             next(self.cursor)
 
         
-                
+                class MultiLevelText(Group):
+    def __init__(self, text, level_indicator="\t", indent=0.5, markers="dot", line_spacing=0.2, font_size=24, **kwargs):
+        super().__init__()
+        # first split text into lines
+        lines = text.split("\n")
+        # then find the level of each line based on level indicator: note that
+        # the algorithm assumes that level_indicator is at the beginning of the line
+        # and it is only one character.
+        levels = [len(line) - len(line.lstrip(level_indicator)) for line in lines]
+        # then remove the level indicator from the lines
+        lines = [line.lstrip(level_indicator) for line in lines]
+        # add appropriate level markers in each line
+        # check whether level markers is a list or a string
+        if isinstance(markers, str):
+            if   markers == "dot":    marker = "⚫"
+            elif markers == "square": marker = "▪"
+            elif markers == "dash":   marker = "⚬"
+            elif markers == '-':      marker = '-'
+            else: raise ValueError("Invalid marker type")
+            # add the marker to each line
+            lines = [marker + " " + line for line in lines]
+        elif isinstance(markers, list):
+            if len(markers) != max(levels)+1:
+                raise ValueError("Number of markers must match the maximum level")
+            lines = [markers[level] + " " + line for level, line in zip(levels, lines)]
+        else:
+            raise ValueError("Invalid marker type")
+        # now create the text objects
+        texts = [Text(line, font_size=24, **kwargs) for line in lines]
+        self.add(*texts)
+        # arrange the text objects
+        self.arrange(DOWN, aligned_edge=LEFT, buff=line_spacing)
+        # now create the indentations
+        indents = [indent*level for level in levels]
+        # now create the group
+        for text, indent in zip(texts, indents):
+            text.shift(indent*RIGHT)
