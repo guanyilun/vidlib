@@ -55,17 +55,39 @@ class Slide(Group):
             self.add(mob)
         self.last_mob = mob
 
-    def title(self, text, underline=True, buff=MED_SMALL_BUFF,
-              underline_width=FRAME_WIDTH-2, left=True):
+    def title(self, text, underline=False, underline_buff=MED_SMALL_BUFF,
+              underline_width=FRAME_WIDTH-2, loc=UL, title_buff=0.5):
+        """create a title with an optional underline
+
+        Parameters
+        ----------
+        text : str
+            the title text
+        underline : bool, optional
+            whether to add an underline, by default False
+        buff : float, optional
+            the buffer between the title and the underline, by default MED_SMALL_BUFF
+        underline_width : float, optional
+            the width of the underline, by default FRAME_WIDTH-2
+
+        Returns
+        -------
+        VGroup
+            the title (and underline, if requested)
+
+        """
         title = self.h1(text)
-        title.to_edge(UP)
         if underline:
             ul = Line(LEFT, RIGHT, color=self.style['h1']['color'])
-            ul.next_to(title, DOWN, buff=buff)
+            ul.next_to(title, DOWN, buff=underline_buff)
             ul.set_width(underline_width)
             title.add(ul)
-        self.title = title
-        # if left: title.to_edge(LEFT)
+
+        # note that I cannot just do to_edge because that will assume that
+        # slides are vertically stacked, which may not be the case. A more
+        # general solution would be to reference the slide object itself.
+        # 1. get corner of the slide
+        title.move_to(self.get_corner(loc) - title_buff*loc, aligned_edge=loc)
         return title
 
     def bulleted_list(self, *texts, buff=MED_SMALL_BUFF, bullet="⚫"):
