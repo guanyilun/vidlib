@@ -3,7 +3,7 @@ from vidlib.colors import *
 
 C = colorscheme['default']
 
-# class Slide(VGroup):
+
 class Slide(Group):
     CONFIG = {
         'style': {
@@ -24,16 +24,15 @@ class Slide(Group):
             },
             'bg': {
                 # 'color': C['blue-dark'],
-                'color': BLACK # C['blue-dark'],
+                'color': BLACK
             }
         }
     }
     def __init__(self):
         super().__init__()
         self.last_mob = None
-        self.add(
-            FullScreenRectangle(fill_color=self.style['bg']['color'])
-        )
+        self.bg = FullScreenRectangle(fill_color=self.style['bg']['color'])
+        self.add(self.bg)
 
     def h1(self, text):
         return Text(text, font_size=self.style['h1']['fs'],
@@ -47,7 +46,12 @@ class Slide(Group):
         return Text(text, font_size=self.style['h3']['fs'],
                     color=self.style['h3']['color'])
 
+    def add_rel(self, mob, side=DOWN):
+        """alias for add_v, with a slighly better to understand name"""
+        self.add_v(mob, relative=side)
+
     def add_v(self, mob, relative=DOWN):
+        """add an object relative to the last added project"""
         if self.last_mob is None:
             self.add(mob)
         else:
@@ -101,18 +105,16 @@ class Slide(Group):
 class SlideShow(Scene):
     CONFIG = {
         'transition_time': 0,
-        'transition': 'move_to',
     }
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.slides = []
         self.sid = 0
+        self.cursor = None
 
     def add_slide(self, slide=None, side=DOWN, add_to_scene=True, pagenum=True, skipfirst=True):
-        # if not slide: slide = Slide()
         if len(self.slides) > 0:
             if side is not None:
-                # assuming a stacked layout
                 slide.next_to(self.slides[-1], side)
         if add_to_scene: self.add(slide)
         if pagenum:
@@ -128,47 +130,73 @@ class SlideShow(Scene):
     def goto(self, sid, run_time=None):
         if not run_time: run_time = self.transition_time
         if sid >= len(self.slides): pass
-        animations = []
-        if self.transition == 'move_to':
-            animations = [self.camera.frame.animate.move_to(
-                self.slides[sid].get_center()
-            )]
-        elif self.transition == 'crossfade':
-            # note that this assumes the slide is all at the same location
-            animations = [FadeOut(self.slides[self.sid]),FadeIn(self.slides[sid])]
+        animations = [self.camera.frame.animate.move_to(self.slides[sid].get_center())]
         self.play(*animations, run_time=run_time)
 
-    def goto_slide(self, slide, run_time=None):
-        if self.transition == 'move_to':
-            animations = [self.camera.frame.animate.move_to(
-                slide.get_center()
-            )]
-            self.play(*animations, run_time=run_time)
-            try:
-                self.sid = self.slides.index(slide)
-            except Exception: pass
-        else:
-            raise NotImplementedError
+    def goto_slide(self, slide, run_time=0):
+        animations = [self.camera.frame.animate.move_to(slide.get_center())]
+        self.play(*animations, run_time=run_time)
+        try:
+            self.sid = self.slides.index(slide)
+        except Exception as e:
+            print(e)
 
     def on_key_press(self, symbol, modifiers):
         super().on_key_press(symbol, modifiers)
-        # if symbol in [65363,65364,65366]:  # right, down, pagedown
-        if symbol in [65364,65366]:  # down, pagedown
+        if symbol in [65363,65364,65366]:  # right, down, pagedown
             if self.sid < len(self.slides) - 1:
                 self.goto(self.sid+1)
                 self.sid += 1
 
-        # if symbol in [65361,65362,65365]:  # left, up, pageup
-        if symbol in [65362,65365]:  # up, pageup
+        if symbol in [65361,65362,65365]:  # left, up, pageup
             if self.sid > 0:
                 self.goto(self.sid-1)
                 self.sid -= 1
-        
-        if symbol == 65363:
-            next(self.cursor)
 
-        
-                class MultiLevelText(Group):
+    def next(self):
+        """Advance animation"""
+        if self.cursor == None: return
+        try:
+            next(self.cursor)
+            # self.update_frame()
+        except Exception as e:
+            print(e)
+            pass
+
+    def on_mouse_press(self, point, button, modifiers):
+        # don't use SPACE to advance, it causes weird bug in manim
+        super().on_mouse_press(point, button, modifiers)
+        self.next()
+
+    def autoplay(self, wait=3):
+        self.wait(wait)
+        for _ in self.present():
+            self.wait(wait)
+        self.wait(wait)
+
+    def to_pdf(self, oname="slide.pdf", wait=3):
+        """Render to pdf. This needs to run with non-preview mode,
+        such as through manimgl slide.py -w"""
+        self.update_frame()
+        im1 = self.camera.get_image()
+        im1 = im1.convert("RGB")
+        images = []
+        self.wait(wait)
+        for _ in self.present():
+            self.update_frame()
+            img = self.camera.get_image()
+            img = img.convert("RGB")
+            images.append(img)
+            self.wait(wait)
+        self.update_frame()
+        img = self.camera.get_image()
+        img = img.convert("RGB")
+        images.append(img)
+        self.wait(wait)
+        im1.save(oname, save_all=True, append_images=images)
+
+
+class MultiLevelText(Group):
     def __init__(self, text, level_indicator="\t", indent=0.5, markers="dot", line_spacing=0.2, font_size=24, **kwargs):
         super().__init__()
         # first split text into lines
