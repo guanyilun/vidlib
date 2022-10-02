@@ -33,6 +33,27 @@ class Slide(Group):
         self.last_mob = None
         self.bg = FullScreenRectangle(fill_color=self.style['bg']['color'])
         self.add(self.bg)
+        self.stages = []
+        self._refs = {}
+        # whether to auto advance to the next slide when animations are done
+        self.auto_advance = False
+
+    def add_stage(self, *stages, **kwargs):
+        """Add a presentation stage. Input could be anything that
+        gets passed to self.play() or a callable function which takes
+        a slide as argument. kwargs can contain a keyword 'wait' which
+        will determine whether user input is before executing the stage.
+
+        """
+        self.stages.append((stages, kwargs))
+
+    def add_ref(self, key, mob):
+        self._refs[key] = mob
+
+    def get_ref(self, key):
+        if key in self._refs:
+            return self._refs[key]
+        return None
 
     def h1(self, text):
         return Text(text, font_size=self.style['h1']['fs'],
@@ -103,16 +124,29 @@ class Slide(Group):
 
 
 class SlideShow(Scene):
-    CONFIG = {
-        'transition_time': 0,
-    }
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, dev=True, **kwargs):
+        if dev:
+            print("Entering dev mode")
+            InteractiveScene.__init__(self, **kwargs)
+        else:
+            print("Entering production mode")
+            Scene.__init__(self, **kwargs)
         self.slides = []
         self.sid = 0
         self.cursor = None
+        self.transition_time = 0
+        self.dev = dev
+        self.refs = {}
 
-    def add_slide(self, slide=None, side=DOWN, add_to_scene=True, pagenum=True, skipfirst=True):
+    def setup(self):
+        if self.dev: InteractiveScene.setup(self)
+        self.cursor = self.present()
+
+    def present(self):
+        pass
+
+    def add_slide(self, slide=None, side=DOWN, add_to_scene=True, pagenum=True, skipfirst=True, focus=True):
+        if slide is None: slide = Slide()
         if len(self.slides) > 0:
             if side is not None:
                 slide.next_to(self.slides[-1], side)
@@ -125,48 +159,76 @@ class SlideShow(Scene):
                 pagenum.move_to(slide.get_bottom()+0.5*UP)
                 slide.add(pagenum)
         self.slides.append(slide)
+        if focus: self.goto_slide(slide)
         return slide
 
-    def goto(self, sid, run_time=None):
+    def goto_sid(self, sid, run_time=None, refresh=True):
         if not run_time: run_time = self.transition_time
         if sid >= len(self.slides): pass
         animations = [self.camera.frame.animate.move_to(self.slides[sid].get_center())]
         self.play(*animations, run_time=run_time)
+        self.sid = sid
+        print("goto:", self.sid)
+        self.post_stage_handler()
 
     def goto_slide(self, slide, run_time=0):
-        animations = [self.camera.frame.animate.move_to(slide.get_center())]
-        self.play(*animations, run_time=run_time)
         try:
             self.sid = self.slides.index(slide)
+            self.goto_sid(self.sid, run_time=run_time)
         except Exception as e:
             print(e)
 
     def on_key_press(self, symbol, modifiers):
         super().on_key_press(symbol, modifiers)
-        if symbol in [65363,65364,65366]:  # right, down, pagedown
+        # if symbol in [65363,65364,65366]:  # right, down, pagedown
+        if symbol in [65364,65366]:  # down, pagedown
             if self.sid < len(self.slides) - 1:
-                self.goto(self.sid+1)
-                self.sid += 1
+                self.goto_sid(self.sid+1)
 
-        if symbol in [65361,65362,65365]:  # left, up, pageup
+        # if symbol in [65361,65362,65365]:  # left, up, pageup
+        if symbol in [65362,65365]:  # up, pageup
             if self.sid > 0:
-                self.goto(self.sid-1)
-                self.sid -= 1
+                self.goto_sid(self.sid-1)
 
     def next(self):
         """Advance animation"""
         if self.cursor == None: return
         try:
             next(self.cursor)
-            # self.update_frame()
         except Exception as e:
             print(e)
             pass
 
+    def post_stage_handler(self):
+        """copied from scene.post_cell_func"""
+        self.refresh_static_mobjects()
+        if not self.is_window_closing():
+            self.update_frame(dt=0, ignore_skipping=True)
+        self.save_state()
+
+    def present(self):
+        for sid in range(len(self.slides)):
+            slide = self.slides[sid]
+            self.goto_slide(slide)
+            # if there is animations defined, play them
+            if len(slide.stages)>0:
+                print(f"sid {sid}: {len(slide.stages)} stages found")
+                for stage in slide.stages:
+                    driver, kwargs = stage
+                    # wait for interaction unless otherwise told
+                    if kwargs.get('wait', True): yield
+                    if callable(driver[0]):
+                        stage[0][0](slide)
+                    else:  # otherwise assume it is a list of animations
+                        ani, kwargs = stage
+                        self.play(*ani, **kwargs)
+                    self.post_stage_handler()
+            if not slide.auto_advance: yield  # wait for interaction before going to the next slide
+
     def on_mouse_press(self, point, button, modifiers):
         # don't use SPACE to advance, it causes weird bug in manim
         super().on_mouse_press(point, button, modifiers)
-        self.next()
+        if not self.dev: self.next()
 
     def autoplay(self, wait=3):
         self.wait(wait)
